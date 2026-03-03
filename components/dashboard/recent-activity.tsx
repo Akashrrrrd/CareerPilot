@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -14,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Eye, Edit, Archive, Calendar, MapPin, DollarSign } from 'lucide-react'
+import { Eye, Edit, Trash2, Calendar, MapPin, DollarSign } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -34,13 +33,13 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { useToast } from '@/hooks/use-toast'
-import { useRouter } from 'next/navigation'
+import { Input } from '@/components/ui/input'
 
 interface Activity {
   id: string
   jobTitle: string
   company: string
-  status: 'applied' | 'interviewing' | 'rejected' | 'accepted'
+  status: 'applied' | 'interviewing' | 'offer' | 'rejected'
   appliedDate: string
   matchScore?: number
   location?: string
@@ -53,59 +52,22 @@ interface RecentActivityProps {
   activities?: Activity[]
 }
 
-const defaultActivities: Activity[] = [
-  {
-    id: '1',
-    jobTitle: 'Senior React Developer',
-    company: 'Tech Corp',
-    status: 'applied',
-    appliedDate: '2 hours ago',
-    matchScore: 92,
-    location: 'San Francisco, CA',
-    salary: '$120k - $160k',
-    description: 'We are looking for an experienced React developer to join our team and build amazing user interfaces.',
-    jobType: 'Full-time',
-  },
-  {
-    id: '2',
-    jobTitle: 'Full Stack Engineer',
-    company: 'StartupXYZ',
-    status: 'interviewing',
-    appliedDate: '1 day ago',
-    matchScore: 88,
-    location: 'Remote',
-    salary: '$100k - $140k',
-    description: 'Join our fast-growing startup and work on cutting-edge technologies.',
-    jobType: 'Full-time',
-  },
-  {
-    id: '3',
-    jobTitle: 'Frontend Developer',
-    company: 'Design Studio',
-    status: 'applied',
-    appliedDate: '3 days ago',
-    matchScore: 85,
-    location: 'New York, NY',
-    salary: '$90k - $130k',
-    description: 'Create beautiful and responsive web applications for our clients.',
-    jobType: 'Contract',
-  },
-]
-
 const statusColors = {
   applied: 'bg-blue-500/10 text-blue-500 hover:bg-blue-500/20',
   interviewing: 'bg-purple-500/10 text-purple-500 hover:bg-purple-500/20',
   rejected: 'bg-red-500/10 text-red-500 hover:bg-red-500/20',
-  accepted: 'bg-green-500/10 text-green-500 hover:bg-green-500/20',
+  offer: 'bg-green-500/10 text-green-500 hover:bg-green-500/20',
 }
 
-export function RecentActivity({ activities = defaultActivities }: RecentActivityProps) {
+export function RecentActivity({ activities = [] }: RecentActivityProps) {
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
   const [editActivity, setEditActivity] = useState<Activity | null>(null)
-  const [archiveActivity, setArchiveActivity] = useState<Activity | null>(null)
+  const [editStatus, setEditStatus] = useState<string>('')
+  const [editNotes, setEditNotes] = useState<string>('')
+  const [editFollowUpDate, setEditFollowUpDate] = useState<string>('')
+  const [deleteActivity, setDeleteActivity] = useState<Activity | null>(null)
   const [localActivities, setLocalActivities] = useState(activities)
   const { toast } = useToast()
-  const router = useRouter()
 
   const handleView = (activity: Activity) => {
     setSelectedActivity(activity)
@@ -113,34 +75,122 @@ export function RecentActivity({ activities = defaultActivities }: RecentActivit
 
   const handleEdit = (activity: Activity) => {
     setEditActivity(activity)
+    setEditStatus(activity.status.charAt(0).toUpperCase() + activity.status.slice(1))
+    setEditNotes('')
+    setEditFollowUpDate('')
   }
 
-  const handleSaveEdit = () => {
-    if (editActivity) {
+  const handleSaveEdit = async () => {
+    if (!editActivity) return
+
+    try {
+      const userEmail = localStorage.getItem('userEmail')
+      if (!userEmail) {
+        toast({
+          title: 'Error',
+          description: 'User not authenticated',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      const response = await fetch('/api/applications', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editActivity.id,
+          userId: userEmail,
+          status: editStatus,
+          notes: editNotes || undefined,
+          followUpDate: editFollowUpDate || undefined,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update application')
+      }
+
+      // Update local state
+      const updatedActivity = {
+        ...editActivity,
+        status: editStatus.toLowerCase() as 'applied' | 'interviewing' | 'offer' | 'rejected',
+      }
+      
       setLocalActivities(localActivities.map((a) => 
-        a.id === editActivity.id ? editActivity : a
+        a.id === editActivity.id ? updatedActivity : a
       ))
+
       toast({
         title: 'Application Updated',
         description: `Updated ${editActivity.jobTitle} at ${editActivity.company}`,
       })
       setEditActivity(null)
-    }
-  }
-
-  const handleArchive = (activity: Activity) => {
-    setArchiveActivity(activity)
-  }
-
-  const confirmArchive = () => {
-    if (archiveActivity) {
-      setLocalActivities(localActivities.filter((a) => a.id !== archiveActivity.id))
+    } catch (error) {
+      console.error('Error updating application:', error)
       toast({
-        title: 'Application Archived',
-        description: `${archiveActivity.jobTitle} at ${archiveActivity.company} has been archived`,
+        title: 'Error',
+        description: 'Failed to update application',
+        variant: 'destructive',
       })
-      setArchiveActivity(null)
     }
+  }
+
+  const handleDelete = (activity: Activity) => {
+    setDeleteActivity(activity)
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteActivity) return
+
+    try {
+      const userEmail = localStorage.getItem('userEmail')
+      if (!userEmail) {
+        toast({
+          title: 'Error',
+          description: 'User not authenticated',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      const response = await fetch(`/api/applications?id=${deleteActivity.id}&userId=${encodeURIComponent(userEmail)}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to delete application')
+      }
+
+      setLocalActivities(localActivities.filter((a) => a.id !== deleteActivity.id))
+      toast({
+        title: 'Application Deleted',
+        description: `${deleteActivity.jobTitle} at ${deleteActivity.company} has been deleted`,
+      })
+      setDeleteActivity(null)
+    } catch (error) {
+      console.error('Error deleting application:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to delete application',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  if (localActivities.length === 0) {
+    return (
+      <Card className="bg-card">
+        <CardHeader>
+          <CardTitle>Recent Applications</CardTitle>
+          <CardDescription>Your latest job applications</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8 text-muted-foreground">
+            No applications yet. Start applying to jobs!
+          </div>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (
@@ -197,10 +247,10 @@ export function RecentActivity({ activities = defaultActivities }: RecentActivit
                     size="sm"
                     variant="ghost"
                     className="h-8 w-8 p-0 bg-muted/50 hover:bg-muted hover:text-red-500"
-                    onClick={() => handleArchive(activity)}
-                    title="Archive application"
+                    onClick={() => handleDelete(activity)}
+                    title="Delete application"
                   >
-                    <Archive className="h-4 w-4" />
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
@@ -211,12 +261,12 @@ export function RecentActivity({ activities = defaultActivities }: RecentActivit
 
       {/* View Details Dialog */}
       <Dialog open={!!selectedActivity} onOpenChange={() => setSelectedActivity(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>{selectedActivity?.jobTitle}</DialogTitle>
             <DialogDescription>{selectedActivity?.company}</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 overflow-y-auto flex-1">
             <div className="flex items-center gap-4 flex-wrap">
               <Badge variant="secondary" className={selectedActivity ? statusColors[selectedActivity.status] : ''}>
                 {selectedActivity?.status.charAt(0).toUpperCase() + selectedActivity?.status.slice(1)}
@@ -273,19 +323,21 @@ export function RecentActivity({ activities = defaultActivities }: RecentActivit
         </DialogContent>
       </Dialog>
 
-      {/* Archive Confirmation Dialog */}
-      <AlertDialog open={!!archiveActivity} onOpenChange={() => setArchiveActivity(null)}>
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteActivity} onOpenChange={() => setDeleteActivity(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Archive Application?</AlertDialogTitle>
+            <AlertDialogTitle>Delete Application?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to archive the application for {archiveActivity?.jobTitle} at {archiveActivity?.company}? 
-              This action can be undone from the archived applications page.
+              Are you sure you want to delete the application for {deleteActivity?.jobTitle} at {deleteActivity?.company}? 
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmArchive}>Archive</AlertDialogAction>
+            <AlertDialogAction onClick={confirmDelete} className="bg-red-500 hover:bg-red-600">
+              Delete
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -295,77 +347,48 @@ export function RecentActivity({ activities = defaultActivities }: RecentActivit
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Edit Application</DialogTitle>
-            <DialogDescription>Update your application details</DialogDescription>
+            <DialogDescription>Update your application status and notes</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid gap-2">
-              <Label htmlFor="jobTitle">Job Title</Label>
-              <Input
-                id="jobTitle"
-                value={editActivity?.jobTitle || ''}
-                onChange={(e) => setEditActivity(editActivity ? { ...editActivity, jobTitle: e.target.value } : null)}
-              />
+              <Label>Job Title</Label>
+              <div className="text-sm text-muted-foreground">{editActivity?.jobTitle}</div>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="company">Company</Label>
-              <Input
-                id="company"
-                value={editActivity?.company || ''}
-                onChange={(e) => setEditActivity(editActivity ? { ...editActivity, company: e.target.value } : null)}
-              />
+              <Label>Company</Label>
+              <div className="text-sm text-muted-foreground">{editActivity?.company}</div>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="status">Status</Label>
-              <Select
-                value={editActivity?.status}
-                onValueChange={(value: 'applied' | 'interviewing' | 'rejected' | 'accepted') =>
-                  setEditActivity(editActivity ? { ...editActivity, status: value } : null)
-                }
-              >
+              <Select value={editStatus} onValueChange={setEditStatus}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="applied">Applied</SelectItem>
-                  <SelectItem value="interviewing">Interviewing</SelectItem>
-                  <SelectItem value="accepted">Accepted</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
+                  <SelectItem value="Applied">Applied</SelectItem>
+                  <SelectItem value="Interviewing">Interviewing</SelectItem>
+                  <SelectItem value="Offer">Offer</SelectItem>
+                  <SelectItem value="Rejected">Rejected</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="location">Location</Label>
-                <Input
-                  id="location"
-                  value={editActivity?.location || ''}
-                  onChange={(e) => setEditActivity(editActivity ? { ...editActivity, location: e.target.value } : null)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="salary">Salary</Label>
-                <Input
-                  id="salary"
-                  value={editActivity?.salary || ''}
-                  onChange={(e) => setEditActivity(editActivity ? { ...editActivity, salary: e.target.value } : null)}
-                />
-              </div>
-            </div>
             <div className="grid gap-2">
-              <Label htmlFor="jobType">Job Type</Label>
+              <Label htmlFor="followUpDate">Follow-up Date (Optional)</Label>
               <Input
-                id="jobType"
-                value={editActivity?.jobType || ''}
-                onChange={(e) => setEditActivity(editActivity ? { ...editActivity, jobType: e.target.value } : null)}
+                id="followUpDate"
+                type="date"
+                value={editFollowUpDate}
+                onChange={(e) => setEditFollowUpDate(e.target.value)}
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="notes">Notes (Optional)</Label>
               <Textarea
-                id="description"
-                value={editActivity?.description || ''}
-                onChange={(e) => setEditActivity(editActivity ? { ...editActivity, description: e.target.value } : null)}
+                id="notes"
+                value={editNotes}
+                onChange={(e) => setEditNotes(e.target.value)}
                 rows={4}
+                placeholder="Add any notes about this application..."
               />
             </div>
           </div>

@@ -1,11 +1,9 @@
 'use client'
 
-import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Trash2, GripVertical } from 'lucide-react'
-import { useState } from 'react'
+import { Trash2, GripVertical, Plus } from 'lucide-react'
 
 interface Education {
   id: string
@@ -16,23 +14,29 @@ interface Education {
   description?: string
 }
 
-export function EducationSection() {
-  const [educations, setEducations] = useState<Education[]>([
-    {
-      id: '1',
-      school: 'State University',
-      degree: 'Bachelor of Science',
-      field: 'Computer Science',
-      gradDate: '2019-05',
-      description: 'Graduated with honors. GPA: 3.8',
-    },
-  ])
+interface EducationSectionProps {
+  educations: Education[]
+  setEducations: (educations: Education[]) => void
+}
+
+export function EducationSection({ educations, setEducations }: EducationSectionProps) {
+  const handleAdd = () => {
+    const newEducation: Education = {
+      id: Date.now().toString(),
+      school: '',
+      degree: '',
+      field: '',
+      gradDate: '',
+      description: '',
+    }
+    setEducations([...educations, newEducation])
+  }
 
   const handleDelete = (id: string) => {
     setEducations(educations.filter(edu => edu.id !== id))
   }
 
-  const handleUpdate = (id: string, field: string, value: string) => {
+  const handleUpdate = (id: string, field: keyof Education, value: string) => {
     setEducations(educations.map(edu =>
       edu.id === id ? { ...edu, [field]: value } : edu
     ))
@@ -105,6 +109,17 @@ export function EducationSection() {
           </div>
         </div>
       ))}
+      
+      {educations.length === 0 && (
+        <div className="text-center py-8 text-muted-foreground">
+          No education added yet. Click the button below to add your first education.
+        </div>
+      )}
+      
+      <Button variant="outline" className="w-full gap-2" onClick={handleAdd}>
+        <Plus className="h-4 w-4" />
+        Add Education
+      </Button>
     </div>
   )
 }

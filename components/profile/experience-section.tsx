@@ -1,11 +1,9 @@
 'use client'
 
-import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Trash2, GripVertical } from 'lucide-react'
-import { useState } from 'react'
+import { Trash2, GripVertical, Plus } from 'lucide-react'
 
 interface Experience {
   id: string
@@ -17,33 +15,30 @@ interface Experience {
   description: string
 }
 
-export function ExperienceSection() {
-  const [experiences, setExperiences] = useState<Experience[]>([
-    {
-      id: '1',
-      title: 'Senior React Developer',
-      company: 'Tech Corp',
-      startDate: '2021-01',
-      endDate: '2023-12',
-      isCurrent: false,
-      description: 'Led frontend team and architected new design system',
-    },
-    {
-      id: '2',
-      title: 'Full Stack Developer',
-      company: 'StartupXYZ',
-      startDate: '2019-06',
+interface ExperienceSectionProps {
+  experiences: Experience[]
+  setExperiences: (experiences: Experience[]) => void
+}
+
+export function ExperienceSection({ experiences, setExperiences }: ExperienceSectionProps) {
+  const handleAdd = () => {
+    const newExperience: Experience = {
+      id: Date.now().toString(),
+      title: '',
+      company: '',
+      startDate: '',
       endDate: '',
-      isCurrent: true,
-      description: 'Built full-stack features for SaaS platform',
-    },
-  ])
+      isCurrent: false,
+      description: '',
+    }
+    setExperiences([...experiences, newExperience])
+  }
 
   const handleDelete = (id: string) => {
     setExperiences(experiences.filter(exp => exp.id !== id))
   }
 
-  const handleUpdate = (id: string, field: string, value: string) => {
+  const handleUpdate = (id: string, field: keyof Experience, value: any) => {
     setExperiences(experiences.map(exp =>
       exp.id === id ? { ...exp, [field]: value } : exp
     ))
@@ -98,7 +93,7 @@ export function ExperienceSection() {
                     <input
                       type="checkbox"
                       checked={experience.isCurrent}
-                      onChange={(e) => handleUpdate(experience.id, 'isCurrent', e.target.checked ? 'true' : 'false')}
+                      onChange={(e) => handleUpdate(experience.id, 'isCurrent', e.target.checked)}
                       className="rounded"
                     />
                     <span>Currently working</span>
@@ -128,6 +123,17 @@ export function ExperienceSection() {
           </div>
         </div>
       ))}
+      
+      {experiences.length === 0 && (
+        <div className="text-center py-8 text-muted-foreground">
+          No experience added yet. Click the button below to add your first experience.
+        </div>
+      )}
+      
+      <Button variant="outline" className="w-full gap-2" onClick={handleAdd}>
+        <Plus className="h-4 w-4" />
+        Add Experience
+      </Button>
     </div>
   )
 }

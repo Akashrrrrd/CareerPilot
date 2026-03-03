@@ -1,25 +1,26 @@
 import mongoose, { Schema, Document, Model } from 'mongoose'
 
 export interface IProfile extends Document {
-  userId: mongoose.Types.ObjectId
+  userId: string
   profileName: string
   headline: string
   summary: string
   experience: Array<{
+    id: string
     title: string
     company: string
-    startDate: Date
-    endDate?: Date
-    current: boolean
+    startDate: string
+    endDate?: string
+    isCurrent: boolean
     description: string
   }>
   education: Array<{
+    id: string
+    school: string
     degree: string
-    institution: string
-    startDate: Date
-    endDate?: Date
-    current: boolean
-    description: string
+    field: string
+    gradDate: string
+    description?: string
   }>
   skills: string[]
   createdAt: Date
@@ -29,9 +30,9 @@ export interface IProfile extends Document {
 const ProfileSchema: Schema = new Schema(
   {
     userId: {
-      type: Schema.Types.ObjectId,
-      ref: 'User',
+      type: String,
       required: true,
+      index: true,
     },
     profileName: {
       type: String,
@@ -45,32 +46,45 @@ const ProfileSchema: Schema = new Schema(
       type: String,
       default: '',
     },
-    experience: [
-      {
-        title: String,
-        company: String,
-        startDate: Date,
-        endDate: Date,
-        current: Boolean,
-        description: String,
-      },
-    ],
-    education: [
-      {
-        degree: String,
-        institution: String,
-        startDate: Date,
-        endDate: Date,
-        current: Boolean,
-        description: String,
-      },
-    ],
-    skills: [String],
+    experience: {
+      type: [
+        {
+          id: String,
+          title: String,
+          company: String,
+          startDate: String,
+          endDate: String,
+          isCurrent: Boolean,
+          description: String,
+        },
+      ],
+      default: [],
+    },
+    education: {
+      type: [
+        {
+          id: String,
+          school: String,
+          degree: String,
+          field: String,
+          gradDate: String,
+          description: String,
+        },
+      ],
+      default: [],
+    },
+    skills: {
+      type: [String],
+      default: [],
+    },
   },
   {
     timestamps: true,
   }
 )
+
+// Create index for userId but allow it to be created if it doesn't exist
+ProfileSchema.index({ userId: 1 }, { unique: true, sparse: true })
 
 const Profile: Model<IProfile> =
   mongoose.models.Profile || mongoose.model<IProfile>('Profile', ProfileSchema)

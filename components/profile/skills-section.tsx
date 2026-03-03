@@ -1,25 +1,22 @@
 'use client'
 
+import React from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { X } from 'lucide-react'
-import { useState } from 'react'
 
-export function SkillsSection() {
-  const [skills, setSkills] = useState<string[]>([
-    'React',
-    'TypeScript',
-    'Node.js',
-    'PostgreSQL',
-    'Full Stack Development',
-    'System Design',
-  ])
-  const [newSkill, setNewSkill] = useState('')
+interface SkillsSectionProps {
+  skills: string[]
+  setSkills: (skills: string[]) => void
+}
+
+export function SkillsSection({ skills, setSkills }: SkillsSectionProps) {
+  const [newSkill, setNewSkill] = React.useState('')
 
   const handleAddSkill = () => {
-    if (newSkill.trim()) {
+    if (newSkill.trim() && !skills.includes(newSkill.trim())) {
       setSkills([...skills, newSkill.trim()])
       setNewSkill('')
     }
@@ -35,6 +32,8 @@ export function SkillsSection() {
       handleAddSkill()
     }
   }
+
+  const suggestedSkills = ['Python', 'AWS', 'Docker', 'REST APIs', 'Agile', 'Communication', 'Leadership', 'Problem Solving']
 
   return (
     <div className="space-y-4">
@@ -77,7 +76,7 @@ export function SkillsSection() {
       <div className="rounded-lg border border-border bg-background p-4">
         <h4 className="font-medium text-foreground mb-2">Suggested Skills</h4>
         <div className="flex flex-wrap gap-2">
-          {['Python', 'AWS', 'Docker', 'REST APIs', 'Agile', 'Communication'].map((skill) => (
+          {suggestedSkills.map((skill) => (
             <Badge
               key={skill}
               variant="outline"

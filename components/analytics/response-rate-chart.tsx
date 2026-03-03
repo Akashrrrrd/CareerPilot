@@ -1,15 +1,8 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts'
-
-const data = [
-  { title: 'Software Engineer', rate: 45 },
-  { title: 'Frontend Developer', rate: 38 },
-  { title: 'Full Stack', rate: 52 },
-  { title: 'DevOps Engineer', rate: 28 },
-  { title: 'Data Scientist', rate: 35 },
-]
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 
 const COLORS = [
   'hsl(var(--chart-1))',
@@ -19,7 +12,75 @@ const COLORS = [
   'hsl(var(--chart-5))',
 ]
 
-export function ResponseRateChart() {
+interface ResponseRateChartProps {
+  period?: string
+}
+
+export function ResponseRateChart({ period = 'all' }: ResponseRateChartProps) {
+  const [data, setData] = useState<{ title: string; rate: number }[]>([])
+
+  useEffect(() => {
+    fetchResponseRateData()
+  }, [period])
+
+  const fetchResponseRateData = async () => {
+    try {
+      const userData = localStorage.getItem('user')
+      if (!userData) return
+
+      const user = JSON.parse(userData)
+      const response = await fetch(`/api/applications?userId=${encodeURIComponent(user.email)}`)
+      
+      if (response.ok) {
+        const result = await response.json()
+        const applications = result.applications || []
+
+        // Group by job title and calculate response rates
+        const titleStats: { [key: string]: { total: number; responded: number } } = {}
+
+        applications.forEach((app: any) => {
+          const title = app.jobTitle || 'Unknown'
+          if (!titleStats[title]) {
+            titleStats[title] = { total: 0, responded: 0 }
+          }
+          titleStats[title].total++
+          if (app.status !== 'Applied') {
+            titleStats[title].responded++
+          }
+        })
+
+        // Convert to chart data
+        const chartData = Object.entries(titleStats)
+          .map(([title, stats]) => ({
+            title: title.length > 20 ? title.substring(0, 20) + '...' : title,
+            rate: stats.total > 0 ? Math.round((stats.responded / stats.total) * 100) : 0,
+          }))
+          .sort((a, b) => b.rate - a.rate)
+          .slice(0, 5) // Top 5 job titles
+
+        setData(chartData)
+      }
+    } catch (error) {
+      console.error('Failed to fetch response rate data:', error)
+    }
+  }
+
+  if (data.length === 0) {
+    return (
+      <Card className="bg-card">
+        <CardHeader>
+          <CardTitle>Response Rate by Job Title</CardTitle>
+          <CardDescription>Your average response rates for different job titles</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex h-[300px] items-center justify-center text-muted-foreground">
+            No application data available
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <Card className="bg-card">
       <CardHeader>

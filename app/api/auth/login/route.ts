@@ -35,12 +35,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Update login tracking
+    user.loginCount = (user.loginCount || 0) + 1
+    user.lastLoginAt = new Date()
+    await user.save()
+
     // Return user without password
     const userResponse = {
       id: user._id,
       name: user.name,
       email: user.email,
       createdAt: user.createdAt,
+      isNewUser: user.loginCount === 1,
     }
 
     return NextResponse.json(

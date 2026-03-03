@@ -5,11 +5,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MessageBubble } from './message-bubble'
-import { Loader2, Send, Zap, Lightbulb, BookOpen } from 'lucide-react'
+import { Loader2, Send, Zap, Lightbulb, BookOpen, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 
 interface Message {
-  id: string
-  role: 'user' | 'agent'
+  role: 'user' | 'assistant'
   content: string
   timestamp: Date
 }
@@ -18,31 +29,26 @@ const suggestedActions = [
   {
     icon: Zap,
     title: 'Quick Tips',
-    description: 'Get interview preparation tips',
+    description: 'Give me interview preparation tips',
   },
   {
     icon: Lightbulb,
     title: 'Job Advice',
-    description: 'Get personalized job search advice',
+    description: 'Give me personalized job search advice',
   },
   {
     icon: BookOpen,
     title: 'Profile Review',
-    description: 'Review my job application profiles',
+    description: 'Review my job application profile and suggest improvements',
   },
 ]
 
 export function ChatInterface() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      role: 'agent',
-      content: 'Hello! I\'m your CareerPilot AI assistant. I\'m here to help you with your job search, profile building, and application strategies. How can I assist you today?',
-      timestamp: new Date(),
-    },
-  ])
+  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [userId, setUserId] = useState<string>('')
+  const [geminiApiKey, setGeminiApiKey] = useState<string>('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
@@ -53,13 +59,60 @@ export function ChatInterface() {
     scrollToBottom()
   }, [messages])
 
+  useEffect(() => {
+    // Load user data and fetch chat history
+    const storedUser = localStorage.getItem('user')
+    if (storedUser) {
+      const user = JSON.parse(storedUser)
+      const userEmail = user.email || user.id
+      setUserId(userEmail)
+      fetchChatHistory(userEmail)
+    }
+  }, [])
+
+  const fetchChatHistory = async (userEmail: string) => {
+    try {
+      const response = await fetch(`/api/chat?userId=${encodeURIComponent(userEmail)}`)
+      const data = await response.json()
+
+      if (response.ok && data.messages) {
+        setMessages(data.messages.map((msg: any) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp),
+        })))
+      }
+    } catch (error) {
+      console.error('Failed to fetch chat history:', error)
+      toast.error('Failed to load chat history')
+    }
+  }
+
+  const fetchUserSettings = async () => {
+    try {
+      const storedUser = localStorage.getItem('user')
+      if (!storedUser) return ''
+
+      const user = JSON.parse(storedUser)
+      const response = await fetch(`/api/user/settings?userId=${encodeURIComponent(user.email || user.id)}`)
+      const data = await response.json()
+
+      console.log('[Chat] User settings response:', data)
+
+      if (response.ok && data.geminiApiKey) {
+        return data.geminiApiKey
+      }
+    } catch (error) {
+      console.error('Failed to fetch user settings:', error)
+    }
+    return ''
+  }
+
   const handleSendMessage = async (text?: string) => {
     const messageText = text || input
-    if (!messageText.trim()) return
+    if (!messageText.trim() || !userId) return
 
-    // Add user message
+    // Add user message immediately
     const userMessage: Message = {
-      id: Date.now().toString(),
       role: 'user',
       content: messageText,
       timestamp: new Date(),
@@ -68,47 +121,108 @@ export function ChatInterface() {
     setInput('')
     setIsLoading(true)
 
-    // Simulate agent response
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    try {
+      // Get user's Gemini API key from settings
+      const apiKey = await fetchUserSettings()
 
-    const agentResponses = [
-      'That\'s a great question! Based on your profile, I\'d recommend focusing on highlighting your leadership experience in your cover letters.',
-      'I\'d suggest updating your profile summary to emphasize your recent achievements. This will help you match better with similar roles.',
-      'Have you considered tailoring your resume for each application? I\'ve found that customized resumes get 3x more responses.',
-      'Your match score with remote positions is quite high. Would you like me to show you more remote job opportunities?',
-      'I recommend scheduling follow-ups 2 weeks after applying. Would you like me to set up reminders for your pending applications?',
-    ]
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId,
+          message: messageText,
+          geminiApiKey: apiKey,
+        }),
+      })
 
-    const agentMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      role: 'agent',
-      content: agentResponses[Math.floor(Math.random() * agentResponses.length)],
-      timestamp: new Date(),
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send message')
+      }
+
+      // Add AI response
+      const assistantMessage: Message = {
+        role: 'assistant',
+        content: data.message.content,
+        timestamp: new Date(data.message.timestamp),
+      }
+      setMessages(prev => [...prev, assistantMessage])
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to send message')
+      // Remove the user message if failed
+      setMessages(prev => prev.slice(0, -1))
+    } finally {
+      setIsLoading(false)
     }
-    setMessages(prev => [...prev, agentMessage])
-    setIsLoading(false)
+  }
+
+  const handleClearHistory = async () => {
+    if (!userId) return
+
+    try {
+      const response = await fetch(`/api/chat?userId=${encodeURIComponent(userId)}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to clear chat history')
+      }
+
+      setMessages([])
+      toast.success('Chat history cleared')
+      
+      // Fetch fresh history (will create new welcome message)
+      await fetchChatHistory(userId)
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to clear chat history')
+    }
   }
 
   return (
     <div className="grid gap-6 md:grid-cols-3">
       {/* Chat Area */}
       <div className="md:col-span-2">
-        <Card className="bg-card h-96 flex flex-col">
-          <CardHeader>
-            <CardTitle>AI Assistant</CardTitle>
-            <CardDescription>Chat with your job search assistant</CardDescription>
+        <Card className="bg-card h-[600px] flex flex-col">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>AI Assistant</CardTitle>
+              <CardDescription>Chat with your job search assistant powered by Gemini</CardDescription>
+            </div>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="gap-2">
+                  <Trash2 className="h-4 w-4" />
+                  Clear
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Clear chat history?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete all your chat messages. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleClearHistory}>Clear History</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </CardHeader>
           <CardContent className="flex-1 overflow-y-auto flex flex-col">
             <div className="flex-1 space-y-4 mb-4">
               {messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-muted-foreground">
-                  No messages yet. Start a conversation!
+                  <Loader2 className="h-6 w-6 animate-spin" />
                 </div>
               ) : (
                 <>
-                  {messages.map((message) => (
+                  {messages.map((message, index) => (
                     <MessageBubble
-                      key={message.id}
+                      key={index}
                       role={message.role}
                       content={message.content}
                       timestamp={message.timestamp}
@@ -136,7 +250,7 @@ export function ChatInterface() {
                       handleSendMessage()
                     }
                   }}
-                  placeholder="Ask me anything..."
+                  placeholder="Ask me anything about your job search..."
                   disabled={isLoading}
                 />
                 <Button
@@ -165,7 +279,8 @@ export function ChatInterface() {
                 <button
                   key={action.title}
                   onClick={() => handleSendMessage(action.description)}
-                  className="w-full text-left p-3 rounded-lg border border-border hover:bg-muted transition-colors"
+                  disabled={isLoading}
+                  className="w-full text-left p-3 rounded-lg border border-border hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <div className="flex items-start gap-2">
                     <Icon className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
@@ -191,9 +306,18 @@ export function ChatInterface() {
               <span className="font-medium">{messages.length}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Session time</span>
-              <span className="font-medium">2m 34s</span>
+              <span className="text-muted-foreground">Model</span>
+              <span className="font-medium">Gemini 1.5 Flash</span>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* API Key Notice */}
+        <Card className="bg-card border-blue-500/20">
+          <CardContent className="pt-6">
+            <p className="text-xs text-muted-foreground">
+              💡 Add your Gemini API key in Settings to enable AI chat functionality.
+            </p>
           </CardContent>
         </Card>
       </div>

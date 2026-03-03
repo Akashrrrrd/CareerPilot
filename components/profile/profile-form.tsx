@@ -9,16 +9,37 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ExperienceSection } from './experience-section'
 import { EducationSection } from './education-section'
 import { SkillsSection } from './skills-section'
-import { Save, Plus } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
+import { Save } from 'lucide-react'
+import { toast } from 'sonner'
+
+interface Experience {
+  id: string
+  title: string
+  company: string
+  startDate: string
+  endDate: string
+  isCurrent: boolean
+  description: string
+}
+
+interface Education {
+  id: string
+  school: string
+  degree: string
+  field: string
+  gradDate: string
+  description?: string
+}
 
 export function ProfileForm() {
-  const { toast } = useToast()
   const [isSaving, setIsSaving] = useState(false)
   const [userName, setUserName] = useState('')
   const [profileName, setProfileName] = useState('')
   const [headline, setHeadline] = useState('')
   const [summary, setSummary] = useState('')
+  const [experiences, setExperiences] = useState<Experience[]>([])
+  const [educations, setEducations] = useState<Education[]>([])
+  const [skills, setSkills] = useState<string[]>([])
 
   useEffect(() => {
     // Load user data from localStorage
@@ -28,22 +49,26 @@ export function ProfileForm() {
       setUserName(user.name || '')
       
       // Fetch profile from MongoDB
-      fetchProfile(user.id)
+      fetchProfile(user.email || user.id)
     }
   }, [])
 
   const fetchProfile = async (userId: string) => {
     try {
-      const response = await fetch(`/api/profile?userId=${userId}`)
+      const response = await fetch(`/api/profile?userId=${encodeURIComponent(userId)}`)
       const data = await response.json()
 
       if (response.ok && data.profile) {
         setProfileName(data.profile.profileName || '')
         setHeadline(data.profile.headline || '')
         setSummary(data.profile.summary || '')
+        setExperiences(data.profile.experience || [])
+        setEducations(data.profile.education || [])
+        setSkills(data.profile.skills || [])
       }
     } catch (error) {
       console.error('Failed to fetch profile:', error)
+      toast.error('Failed to load profile')
     }
   }
 
@@ -53,16 +78,13 @@ export function ProfileForm() {
     try {
       const storedUser = localStorage.getItem('user')
       if (!storedUser) {
-        toast({
-          title: "Error",
-          description: "Please login first",
-          variant: "destructive",
-        })
+        toast.error('Please login first')
         setIsSaving(false)
         return
       }
 
       const user = JSON.parse(storedUser)
+      const userId = user.email || user.id
 
       const response = await fetch('/api/profile', {
         method: 'POST',
@@ -70,10 +92,13 @@ export function ProfileForm() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          userId: user.id,
+          userId,
           profileName,
           headline,
           summary,
+          experience: experiences,
+          education: educations,
+          skills,
         }),
       })
 
@@ -83,16 +108,9 @@ export function ProfileForm() {
         throw new Error(data.error || 'Failed to save profile')
       }
 
-      toast({
-        title: "Profile saved",
-        description: "Your profile has been updated successfully",
-      })
+      toast.success('Profile saved successfully!')
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to save profile",
-        variant: "destructive",
-      })
+      toast.error(error.message || 'Failed to save profile')
     } finally {
       setIsSaving(false)
     }
@@ -104,7 +122,7 @@ export function ProfileForm() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Profile Builder</h1>
-          <p className="mt-2 text-muted-foreground">Create and manage professional profiles tailored for specific roles</p>
+          <p className="mt-2 text-muted-foreground">Create and manage your professional profile</p>
         </div>
         <Button onClick={handleSave} disabled={isSaving} className="gap-2">
           <Save className="h-4 w-4" />
@@ -181,27 +199,24 @@ export function ProfileForm() {
             </TabsList>
 
             <TabsContent value="experience" className="space-y-4">
-              <ExperienceSection />
-              <Button variant="outline" className="w-full gap-2">
-                <Plus className="h-4 w-4" />
-                Add Experience
-              </Button>
+              <ExperienceSection 
+                experiences={experiences}
+                setExperiences={setExperiences}
+              />
             </TabsContent>
 
             <TabsContent value="education" className="space-y-4">
-              <EducationSection />
-              <Button variant="outline" className="w-full gap-2">
-                <Plus className="h-4 w-4" />
-                Add Education
-              </Button>
+              <EducationSection 
+                educations={educations}
+                setEducations={setEducations}
+              />
             </TabsContent>
 
             <TabsContent value="skills" className="space-y-4">
-              <SkillsSection />
-              <Button variant="outline" className="w-full gap-2">
-                <Plus className="h-4 w-4" />
-                Add Skill
-              </Button>
+              <SkillsSection 
+                skills={skills}
+                setSkills={setSkills}
+              />
             </TabsContent>
           </Tabs>
         </CardContent>

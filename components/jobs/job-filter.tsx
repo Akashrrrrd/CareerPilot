@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useState, useEffect } from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -11,70 +11,72 @@ import { Search, Filter, X } from 'lucide-react'
 interface JobFiltersType {
   keyword: string
   location: string
-  salaryMin: string
-  salaryMax: string
   jobType: string[]
-  experience: string[]
 }
 
 interface JobFilterProps {
-  onFiltersChange?: (filters: JobFiltersType) => void
+  onFilterChange?: (filters: { search: string; location: string; jobType: string }) => void
 }
 
-const jobTypes = ['Full-time', 'Part-time', 'Contract', 'Temporary']
-const experienceLevels = ['Entry Level', 'Mid Level', 'Senior', 'Executive']
+const jobTypes = ['Full-time', 'Part-time', 'Contract', 'Remote']
 
-export function JobFilter({ onFiltersChange }: JobFilterProps) {
+export function JobFilter({ onFilterChange }: JobFilterProps) {
   const [filters, setFilters] = useState<JobFiltersType>({
     keyword: '',
     location: '',
-    salaryMin: '',
-    salaryMax: '',
     jobType: [],
-    experience: [],
   })
 
-  const handleFilterChange = (newFilters: JobFiltersType) => {
-    setFilters(newFilters)
-    onFiltersChange?.(newFilters)
+  // Debounce keyword and location changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      notifyParent(filters)
+    }, 500) // Wait 500ms after user stops typing
+
+    return () => clearTimeout(timer)
+  }, [filters.keyword, filters.location])
+
+  // Immediate update for job type changes
+  useEffect(() => {
+    if (filters.jobType.length > 0 || filters.keyword || filters.location) {
+      notifyParent(filters)
+    }
+  }, [filters.jobType])
+
+  const notifyParent = (currentFilters: JobFiltersType) => {
+    onFilterChange?.({
+      search: currentFilters.keyword || 'software developer', // Default search
+      location: currentFilters.location || 'United States', // Default location
+      jobType: currentFilters.jobType.length > 0 ? currentFilters.jobType[0] : '',
+    })
   }
 
   const handleKeywordChange = (value: string) => {
-    handleFilterChange({ ...filters, keyword: value })
+    setFilters({ ...filters, keyword: value })
   }
 
   const handleLocationChange = (value: string) => {
-    handleFilterChange({ ...filters, location: value })
+    setFilters({ ...filters, location: value })
   }
 
   const handleJobTypeToggle = (type: string) => {
     const newJobTypes = filters.jobType.includes(type)
       ? filters.jobType.filter(t => t !== type)
-      : [...filters.jobType, type]
-    handleFilterChange({ ...filters, jobType: newJobTypes })
-  }
-
-  const handleExperienceToggle = (level: string) => {
-    const newExperience = filters.experience.includes(level)
-      ? filters.experience.filter(l => l !== level)
-      : [...filters.experience, level]
-    handleFilterChange({ ...filters, experience: newExperience })
+      : [type] // Only allow one job type at a time
+    setFilters({ ...filters, jobType: newJobTypes })
   }
 
   const handleReset = () => {
     const emptyFilters = {
       keyword: '',
       location: '',
-      salaryMin: '',
-      salaryMax: '',
       jobType: [],
-      experience: [],
     }
     setFilters(emptyFilters)
-    onFiltersChange?.(emptyFilters)
+    notifyParent(emptyFilters)
   }
 
-  const hasActiveFilters = filters.keyword || filters.location || filters.jobType.length > 0 || filters.experience.length > 0
+  const hasActiveFilters = filters.keyword || filters.location || filters.jobType.length > 0
 
   return (
     <Card className="bg-card sticky top-24 h-fit">
@@ -100,48 +102,32 @@ export function JobFilter({ onFiltersChange }: JobFilterProps) {
       <CardContent className="space-y-5">
         {/* Keyword Search */}
         <div className="space-y-2">
-          <Label className="text-xs font-semibold">Keywords</Label>
+          <Label className="text-xs font-semibold">Job Title / Keywords</Label>
           <div className="relative">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Job title, skills..."
+              placeholder="e.g. Software Engineer"
               value={filters.keyword}
               onChange={(e) => handleKeywordChange(e.target.value)}
               className="pl-8"
             />
           </div>
+          <p className="text-xs text-muted-foreground">
+            Leave empty for general search
+          </p>
         </div>
 
         {/* Location */}
         <div className="space-y-2">
           <Label className="text-xs font-semibold">Location</Label>
           <Input
-            placeholder="City, state, or remote"
+            placeholder="e.g. New York, Remote"
             value={filters.location}
             onChange={(e) => handleLocationChange(e.target.value)}
           />
-        </div>
-
-        {/* Salary Range */}
-        <div className="space-y-2">
-          <Label className="text-xs font-semibold">Salary Range</Label>
-          <div className="flex gap-2">
-            <Input
-              type="number"
-              placeholder="Min"
-              value={filters.salaryMin}
-              onChange={(e) => handleFilterChange({ ...filters, salaryMin: e.target.value })}
-              className="text-xs"
-            />
-            <span className="flex items-center text-muted-foreground">-</span>
-            <Input
-              type="number"
-              placeholder="Max"
-              value={filters.salaryMax}
-              onChange={(e) => handleFilterChange({ ...filters, salaryMax: e.target.value })}
-              className="text-xs"
-            />
-          </div>
+          <p className="text-xs text-muted-foreground">
+            City, state, or "Remote"
+          </p>
         </div>
 
         {/* Job Type */}
@@ -166,31 +152,11 @@ export function JobFilter({ onFiltersChange }: JobFilterProps) {
           </div>
         </div>
 
-        {/* Experience Level */}
-        <div className="space-y-3">
-          <Label className="text-xs font-semibold">Experience</Label>
-          <div className="space-y-2">
-            {experienceLevels.map((level) => (
-              <div key={level} className="flex items-center space-x-2">
-                <Checkbox
-                  id={`exp-${level}`}
-                  checked={filters.experience.includes(level)}
-                  onCheckedChange={() => handleExperienceToggle(level)}
-                />
-                <label
-                  htmlFor={`exp-${level}`}
-                  className="text-xs cursor-pointer font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                >
-                  {level}
-                </label>
-              </div>
-            ))}
+        {hasActiveFilters && (
+          <div className="pt-2 text-xs text-muted-foreground">
+            Filters applied automatically
           </div>
-        </div>
-
-        <Button className="w-full" size="sm">
-          Apply Filters
-        </Button>
+        )}
       </CardContent>
     </Card>
   )

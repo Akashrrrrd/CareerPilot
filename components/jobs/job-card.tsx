@@ -13,6 +13,8 @@ interface JobCardProps {
   jobType: string
   postedDays: number
   matchScore: number
+  applyLink?: string
+  thumbnail?: string
   isSaved?: boolean
   onApply?: (id: string) => void
   onSave?: (id: string) => void

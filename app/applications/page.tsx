@@ -22,8 +22,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Plus, Filter } from 'lucide-react'
-import { useState, useEffect } from 'react'
-import { useToast } from '@/hooks/use-toast'
+import { useState } from 'react'
+import { toast } from 'sonner'
 
 export default function ApplicationsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -40,30 +40,22 @@ export default function ApplicationsPage() {
     notes: '',
     followUpDate: '',
   })
-  const { toast } = useToast()
 
   const handleCreateApplication = async () => {
     if (!newApplication.jobTitle || !newApplication.company || !newApplication.location || !newApplication.jobType) {
-      toast({
-        title: 'Missing Information',
-        description: 'Please fill in all required fields',
-        variant: 'destructive',
-      })
+      toast.error('Please fill in all required fields')
       return
     }
 
     try {
       const storedUser = localStorage.getItem('user')
       if (!storedUser) {
-        toast({
-          title: 'Error',
-          description: 'Please login first',
-          variant: 'destructive',
-        })
+        toast.error('Please login first')
         return
       }
 
       const user = JSON.parse(storedUser)
+      const userId = user.email || user.id
 
       const response = await fetch('/api/applications', {
         method: 'POST',
@@ -71,7 +63,7 @@ export default function ApplicationsPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          userId: user.id,
+          userId,
           ...newApplication,
         }),
       })
@@ -82,10 +74,7 @@ export default function ApplicationsPage() {
         throw new Error(data.error || 'Failed to create application')
       }
 
-      toast({
-        title: 'Application Created',
-        description: `Added ${newApplication.jobTitle} at ${newApplication.company}`,
-      })
+      toast.success(`Added ${newApplication.jobTitle} at ${newApplication.company}`)
 
       // Reset form
       setNewApplication({
@@ -102,11 +91,7 @@ export default function ApplicationsPage() {
       setShowNewAppDialog(false)
       setRefreshKey(prev => prev + 1) // Trigger refresh
     } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to create application',
-        variant: 'destructive',
-      })
+      toast.error(error.message || 'Failed to create application')
     }
   }
 
@@ -126,25 +111,29 @@ export default function ApplicationsPage() {
 
         {/* Status Filters */}
         <div className="flex flex-wrap gap-2">
-          <Button
-            key="All"
-            size="sm"
-            variant={statusFilter === 'all' ? 'default' : 'outline'}
+          <button
             onClick={() => setStatusFilter('all')}
-            className="gap-1"
+            className={`flex items-center gap-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+              statusFilter === 'all'
+                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+            }`}
           >
             <Filter className="h-3 w-3" />
             All
-          </Button>
+          </button>
           {['Applied', 'Interviewing', 'Offer', 'Rejected'].map((status) => (
-            <Button
+            <button
               key={status}
-              size="sm"
-              variant={statusFilter === status ? 'default' : 'outline'}
               onClick={() => setStatusFilter(status)}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                statusFilter === status
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+              }`}
             >
               {status}
-            </Button>
+            </button>
           ))}
         </div>
 

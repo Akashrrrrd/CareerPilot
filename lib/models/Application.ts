@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document, Model } from 'mongoose'
 
 export interface IApplication extends Document {
-  userId: mongoose.Types.ObjectId
+  userId: string // User email address
   jobTitle: string
   company: string
   status: 'Applied' | 'Interviewing' | 'Offer' | 'Rejected'
@@ -19,9 +19,9 @@ export interface IApplication extends Document {
 const ApplicationSchema: Schema = new Schema(
   {
     userId: {
-      type: Schema.Types.ObjectId,
-      ref: 'User',
+      type: String,
       required: true,
+      index: true,
     },
     jobTitle: {
       type: String,
