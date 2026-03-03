@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -12,24 +12,38 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Loader2 } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 
 interface AddJobDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onJobAdded?: () => void
 }
 
-export function AddJobDialog({ open, onOpenChange }: AddJobDialogProps) {
+export function AddJobDialog({ open, onOpenChange, onJobAdded }: AddJobDialogProps) {
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     url: '',
     title: '',
     company: '',
   })
-  const { toast } = useToast()
+  const [user, setUser] = useState<{ email: string } | null>(null)
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user')
+    if (storedUser) {
+      setUser(JSON.parse(storedUser))
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!user?.email) {
+      toast.error('Please log in to add jobs')
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -38,29 +52,24 @@ export function AddJobDialog({ open, onOpenChange }: AddJobDialogProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
-          profileId: '1', // Get from user context
+          userId: user.email,
         }),
       })
 
       const data = await response.json()
 
       if (data.success) {
-        toast({
-          title: 'Job added to queue',
-          description: 'The AI agent will process this application',
-        })
+        toast.success('Job added to queue successfully!')
         setFormData({ url: '', title: '', company: '' })
         onOpenChange(false)
-        window.location.reload() // Refresh queue
+        if (onJobAdded) {
+          onJobAdded()
+        }
       } else {
         throw new Error(data.error)
       }
     } catch (error) {
-      toast({
-        title: 'Failed to add job',
-        description: error instanceof Error ? error.message : 'Unknown error',
-        variant: 'destructive',
-      })
+      toast.error(error instanceof Error ? error.message : 'Failed to add job')
     } finally {
       setLoading(false)
     }

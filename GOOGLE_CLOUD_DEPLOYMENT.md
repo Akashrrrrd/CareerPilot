@@ -85,7 +85,7 @@ gcloud services enable containerregistry.googleapis.com
 echo -n "YOUR_GEMINI_API_KEY" | gcloud secrets create gemini-api-key --data-file=-
 
 # Create MongoDB URI secret
-echo -n "mongodb+srv://aakashrajendran2004_db_user:5LBw9RVVJcOyOhH1@cp-users.5lcaedf.mongodb.net/?appName=CP-Users" | gcloud secrets create mongodb-uri --data-file=-
+echo -n "YOUR_MONGODB_CONNECTION_STRING" | gcloud secrets create mongodb-uri --data-file=-
 ```
 
 ### 5. Deploy to Cloud Run

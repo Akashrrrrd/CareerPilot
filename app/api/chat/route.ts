@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { connectDB } from '@/lib/db'
 import Chat from '@/lib/models/Chat'
-import { GoogleGenAI } from '@google/genai'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 
 // GET chat history
 export async function GET(request: NextRequest) {
@@ -79,42 +79,53 @@ export async function POST(request: NextRequest) {
 
     // Get AI response using Gemini
     let aiResponse = ''
-    
+
     try {
       // Use user's API key if provided, otherwise use environment variable
       const apiKey = geminiApiKey || process.env.GEMINI_API_KEY
-      
+
       console.log('[Chat API] Using API key:', apiKey ? 'Yes (length: ' + apiKey.length + ')' : 'No')
-      
+
       if (!apiKey) {
         aiResponse = "I'm sorry, but no Gemini API key is configured. Please add your API key in Settings to enable AI chat functionality."
       } else {
-        // Initialize the Google GenAI client
-        const ai = new GoogleGenAI({ apiKey })
+        // Initialize the Google Generative AI client
+        // gemini-1.5-flash-8b: free tier, 1500 requests/day, 15 requests/min
+        const genAI = new GoogleGenerativeAI(apiKey)
+        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
 
-        // Build conversation context
-        const conversationContext = chat.messages.slice(-10).map(msg => 
-          `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`
-        ).join('\n')
+        // Build conversation context (last 10 messages, excluding the one just added)
+        const contextMessages = chat.messages.slice(-11, -1)
+        const conversationContext = contextMessages
+          .map((msg: any) => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
+          .join('\n')
 
-        const prompt = conversationContext 
-          ? `You are a helpful career assistant. Previous conversation:\n${conversationContext}\n\nUser: ${message}\n\nAssistant:`
-          : `You are a helpful career assistant. User: ${message}\n\nAssistant:`
+        const prompt = conversationContext
+          ? `You are a helpful career assistant for CareerPilot. Help users with job search, resume building, interview preparation, and career advice.\n\nPrevious conversation:\n${conversationContext}\n\nUser: ${message}\n\nAssistant:`
+          : `You are a helpful career assistant for CareerPilot. Help users with job search, resume building, interview preparation, and career advice.\n\nUser: ${message}\n\nAssistant:`
 
-        console.log('[Chat API] Sending to Gemini with model: gemini-1.5-flash-latest')
+        console.log('[Chat API] Sending to Gemini with model: gemini-1.5-flash')
 
-        const response = await ai.models.generateContent({
-          model: 'gemini-1.5-flash-latest',
-          contents: prompt,
-        })
+        const result = await model.generateContent(prompt)
+        const response = result.response
 
-        aiResponse = response.text || 'No response from AI'
+        aiResponse = response.text()?.trim() || 'No response from AI'
         console.log('[Chat API] Gemini response received:', aiResponse.substring(0, 100))
       }
     } catch (error: any) {
       console.error('[Chat API] Gemini error:', error)
-      console.error('[Chat API] Error details:', error.message, error.stack)
-      aiResponse = "I apologize, but I'm having trouble connecting to the AI service. Please check your API key in Settings or try again later. Error: " + error.message
+      console.error('[Chat API] Error details:', error.message)
+
+      // User-friendly error messages based on error type
+      if (error.message?.includes('404')) {
+        aiResponse = "AI model not found. Please contact support."
+      } else if (error.message?.includes('403') || error.message?.includes('API_KEY')) {
+        aiResponse = "Invalid API key. Please check your Gemini API key in Settings."
+      } else if (error.message?.includes('429')) {
+        aiResponse = "Rate limit reached. You have sent too many messages. Please wait a minute and try again."
+      } else {
+        aiResponse = "I'm having trouble connecting to the AI service. Please check your API key in Settings or try again later."
+      }
     }
 
     // Add AI response
@@ -129,9 +140,9 @@ export async function POST(request: NextRequest) {
     await chat.save()
 
     return NextResponse.json(
-      { 
+      {
         message: assistantMessage,
-        success: true 
+        success: true,
       },
       { status: 200 }
     )

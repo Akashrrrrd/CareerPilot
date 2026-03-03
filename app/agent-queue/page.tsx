@@ -5,10 +5,15 @@ import { AgentQueue } from '@/components/agent/agent-queue'
 import { AddJobDialog } from '@/components/agent/add-job-dialog'
 import { Button } from '@/components/ui/button'
 import { Bot, Plus, Sparkles } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 
 export default function AgentQueuePage() {
   const [showAddDialog, setShowAddDialog] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  const handleJobAdded = () => {
+    setRefreshKey(prev => prev + 1)
+  }
 
   return (
     <MainLayout>
@@ -39,21 +44,25 @@ export default function AgentQueuePage() {
           <div className="flex items-start gap-3">
             <Sparkles className="h-5 w-5 text-primary mt-0.5" />
             <div className="flex-1">
-              <h3 className="font-semibold text-foreground">How it works</h3>
+              <h3 className="font-semibold text-foreground">Real Browser Automation with Gemini Vision</h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                The AI agent uses Gemini Vision to understand job application pages visually, then
-                automatically fills forms and submits applications using your profile data. No API
-                integration needed - it works on any job board!
+                The AI agent launches a real headless browser, navigates to the job posting, uses Gemini Vision to analyze the page, 
+                automatically fills forms with your profile data, and submits the application. All actions are logged and screenshots are captured.
+                Click "Start" on any queued job to begin!
               </p>
             </div>
           </div>
         </div>
 
         {/* Queue */}
-        <AgentQueue />
+        <AgentQueue key={refreshKey} />
 
         {/* Add Job Dialog */}
-        <AddJobDialog open={showAddDialog} onOpenChange={setShowAddDialog} />
+        <AddJobDialog 
+          open={showAddDialog} 
+          onOpenChange={setShowAddDialog}
+          onJobAdded={handleJobAdded}
+        />
       </div>
     </MainLayout>
   )

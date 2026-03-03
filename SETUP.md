@@ -57,7 +57,7 @@ Fill in your credentials:
 
 ```env
 # Required: Your Gemini API key
-GOOGLE_AI_API_KEY=AIzaSy...your_key_here
+GEMINI_API_KEY=your_gemini_api_key_here
 
 # Required: Database connection
 DATABASE_URL=postgresql://user:password@localhost:5432/careerpilot

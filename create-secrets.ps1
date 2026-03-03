@@ -2,7 +2,7 @@
 # Replace YOUR_GEMINI_API_KEY with your actual API key
 
 $GEMINI_API_KEY = "YOUR_GEMINI_API_KEY"  # REPLACE THIS
-$MONGODB_URI = "mongodb+srv://aakashrajendran2004_db_user:5LBw9RVVJcOyOhH1@cp-users.5lcaedf.mongodb.net/?appName=CP-Users"
+$MONGODB_URI = "YOUR_MONGODB_CONNECTION_STRING"  # REPLACE THIS
 
 # Refresh environment path
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")

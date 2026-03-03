@@ -1,393 +1,209 @@
-/**
- * WINNING FEATURE #2: Browser Automation Engine
- * 
- * Executes actions based on Gemini's visual understanding
- * This is what makes us a TRUE UI Navigator - we ACT on what we SEE
- */
+import { chromium, Browser, Page } from 'playwright'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 
-import { chromium, Browser, Page, BrowserContext } from 'playwright'
-import { geminiAgent, UIElement, PageAnalysis } from './gemini-vision'
-import path from 'path'
-import fs from 'fs'
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
 
-export interface AutomationResult {
-  success: boolean
-  message: string
-  screenshotPath?: string
-  error?: string
-}
-
-export class BrowserAutomationEngine {
+export class BrowserAutomation {
   private browser: Browser | null = null
-  private context: BrowserContext | null = null
-  private page: Page | null = null
-  private screenshotDir: string
+  public page: Page | null = null
 
-  constructor() {
-    this.screenshotDir = path.join(process.cwd(), 'screenshots')
-    if (!fs.existsSync(this.screenshotDir)) {
-      fs.mkdirSync(this.screenshotDir, { recursive: true })
-    }
-  }
-
-  /**
-   * Initialize browser with stealth settings
-   */
-  async initialize(): Promise<void> {
-    console.log('🚀 Launching browser...')
-    
-    this.browser = await chromium.launch({
-      headless: false, // Show browser for demo - judges love seeing it work!
-      args: [
-        '--disable-blink-features=AutomationControlled',
-        '--disable-dev-shm-usage',
-        '--no-sandbox',
-      ]
-    })
-
-    this.context = await this.browser.newContext({
-      viewport: { width: 1920, height: 1080 },
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      locale: 'en-US',
-      timezoneId: 'America/New_York',
-    })
-
-    this.page = await this.context.newPage()
-    
-    // Inject human-like behavior
-    await this.page.addInitScript(() => {
-      // Override navigator.webdriver
-      Object.defineProperty(navigator, 'webdriver', {
-        get: () => undefined,
+  async initialize() {
+    try {
+      console.log('[Browser] Launching Playwright Chromium...')
+      this.browser = await chromium.launch({
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--no-first-run',
+          '--no-zygote',
+          '--disable-gpu',
+        ],
       })
-    })
-
-    console.log('✅ Browser ready')
-  }
-
-  /**
-   * Navigate to job URL and capture screenshot
-   */
-  async navigateAndCapture(url: string): Promise<string> {
-    if (!this.page) throw new Error('Browser not initialized')
-
-    console.log(`🌐 Navigating to: ${url}`)
-    await this.page.goto(url, { waitUntil: 'networkidle', timeout: 30000 })
-    
-    // Wait for page to stabilize
-    await this.page.waitForTimeout(2000)
-    
-    const screenshotPath = path.join(
-      this.screenshotDir,
-      `capture_${Date.now()}.png`
-    )
-    
-    await this.page.screenshot({ 
-      path: screenshotPath, 
-      fullPage: true 
-    })
-    
-    console.log(`📸 Screenshot saved: ${screenshotPath}`)
-    return screenshotPath
-  }
-
-  /**
-   * CORE MAGIC: Fill form based on Gemini's visual analysis
-   */
-  async fillFormIntelligently(
-    analysis: PageAnalysis,
-    userProfile: any
-  ): Promise<AutomationResult> {
-    if (!this.page) throw new Error('Browser not initialized')
-
-    try {
-      console.log('🤖 Starting intelligent form filling...')
+      console.log('[Browser] Browser launched successfully')
       
-      for (const element of analysis.elements) {
-        if (element.type === 'button' && 
-            (element.label.toLowerCase().includes('apply') || 
-             element.label.toLowerCase().includes('submit'))) {
-          // Skip buttons for now, we'll click them at the end
-          continue
-        }
-
-        // Get the value to fill from user profile
-        const value = await this.getFieldValue(element, userProfile)
-        
-        if (!value) {
-          console.log(`⏭️  Skipping ${element.label} - no matching data`)
-          continue
-        }
-
-        // Fill the field based on type
-        await this.fillField(element, value)
-        
-        // Human-like delay
-        await this.page.waitForTimeout(300 + Math.random() * 700)
-      }
-
-      console.log('✅ Form filled successfully')
-      
-      const screenshotPath = await this.captureCurrentState()
-      
-      return {
-        success: true,
-        message: 'Form filled successfully',
-        screenshotPath
-      }
+      this.page = await this.browser.newPage()
+      await this.page.setViewportSize({ width: 1920, height: 1080 })
+      console.log('[Browser] Page created successfully')
     } catch (error) {
-      console.error('❌ Form filling error:', error)
-      return {
-        success: false,
-        message: 'Failed to fill form',
-        error: String(error)
-      }
+      console.error('[Browser] Failed to initialize:', error)
+      throw new Error(`Browser initialization failed: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
-  /**
-   * Get value for a field from user profile
-   */
-  private async getFieldValue(element: UIElement, userProfile: any): Promise<string | null> {
-    // Direct mapping for common fields
-    const fieldMappings: Record<string, string> = {
-      firstName: userProfile.firstName,
-      lastName: userProfile.lastName,
-      email: userProfile.email,
-      phone: userProfile.phone,
-      linkedin: userProfile.linkedinUrl,
-      portfolio: userProfile.portfolioUrl,
-    }
-
-    if (element.fieldName && fieldMappings[element.fieldName]) {
-      return fieldMappings[element.fieldName]
-    }
-
-    // Use Gemini for complex field mapping
-    return await geminiAgent.mapFieldToProfileData(
-      element.label,
-      element.type,
-      userProfile
-    )
-  }
-
-  /**
-   * Fill a specific field based on its type
-   */
-  private async fillField(element: UIElement, value: string): Promise<void> {
-    if (!this.page) return
-
-    console.log(`✍️  Filling ${element.label}: ${value}`)
-
-    try {
-      // Find the field by label text (visual approach)
-      const labelText = element.label.toLowerCase()
-      
-      switch (element.type) {
-        case 'input':
-        case 'textarea':
-          // Try multiple selectors
-          const selectors = [
-            `input[placeholder*="${element.placeholder}"]`,
-            `input[aria-label*="${element.label}"]`,
-            `textarea[placeholder*="${element.placeholder}"]`,
-            `textarea[aria-label*="${element.label}"]`,
-          ]
-          
-          for (const selector of selectors) {
-            try {
-              const field = await this.page.$(selector)
-              if (field) {
-                await field.click()
-                await field.fill(value)
-                return
-              }
-            } catch (e) {
-              continue
-            }
-          }
-          
-          // Fallback: find by visible text
-          await this.fillByVisibleLabel(element.label, value)
-          break
-
-        case 'select':
-          await this.page.selectOption(`select:near(:text("${element.label}"))`, value)
-          break
-
-        case 'checkbox':
-          if (value.toLowerCase() === 'true' || value.toLowerCase() === 'yes') {
-            await this.page.check(`input[type="checkbox"]:near(:text("${element.label}"))`)
-          }
-          break
-
-        case 'file':
-          // Handle file uploads (resume, cover letter)
-          const fileInput = await this.page.$(`input[type="file"]:near(:text("${element.label}"))`)
-          if (fileInput && userProfile.resumePath) {
-            await fileInput.setInputFiles(userProfile.resumePath)
-          }
-          break
-      }
-    } catch (error) {
-      console.warn(`⚠️  Could not fill ${element.label}:`, error)
-    }
-  }
-
-  /**
-   * Fallback method: fill by finding label and associated input
-   */
-  private async fillByVisibleLabel(label: string, value: string): Promise<void> {
-    if (!this.page) return
-
-    try {
-      // Find the label element
-      const labelElement = await this.page.locator(`text=${label}`).first()
-      
-      // Find the nearest input/textarea
-      const input = await labelElement.locator('xpath=following::input[1]').first()
-      await input.click()
-      await input.fill(value)
-    } catch (error) {
-      console.warn(`Could not fill by label: ${label}`)
-    }
-  }
-
-  /**
-   * Click button (Apply, Submit, Next, etc.)
-   */
-  async clickButton(buttonText: string): Promise<AutomationResult> {
+  async navigateTo(url: string) {
     if (!this.page) throw new Error('Browser not initialized')
-
+    
     try {
-      console.log(`🖱️  Clicking button: ${buttonText}`)
-      
-      // Try multiple approaches
-      const selectors = [
-        `button:has-text("${buttonText}")`,
-        `a:has-text("${buttonText}")`,
-        `input[type="submit"][value*="${buttonText}"]`,
-        `[role="button"]:has-text("${buttonText}")`,
-      ]
-
-      for (const selector of selectors) {
-        try {
-          const button = await this.page.$(selector)
-          if (button) {
-            await button.click()
-            await this.page.waitForTimeout(2000)
-            
-            const screenshotPath = await this.captureCurrentState()
-            
-            return {
-              success: true,
-              message: `Clicked ${buttonText}`,
-              screenshotPath
-            }
-          }
-        } catch (e) {
-          continue
-        }
-      }
-
-      throw new Error(`Button not found: ${buttonText}`)
+      console.log(`[Browser] Navigating to: ${url}`)
+      await this.page.goto(url, { waitUntil: 'networkidle', timeout: 30000 })
+      await this.page.waitForTimeout(2000) // Wait for dynamic content
+      console.log('[Browser] Navigation successful')
     } catch (error) {
-      return {
-        success: false,
-        message: `Failed to click ${buttonText}`,
-        error: String(error)
-      }
+      console.error('[Browser] Navigation failed:', error)
+      throw new Error(`Navigation failed: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
-  /**
-   * Capture current page state
-   */
-  async captureCurrentState(): Promise<string> {
+  async takeScreenshot(): Promise<string> {
     if (!this.page) throw new Error('Browser not initialized')
-
-    const screenshotPath = path.join(
-      this.screenshotDir,
-      `state_${Date.now()}.png`
-    )
-    
-    await this.page.screenshot({ path: screenshotPath, fullPage: true })
-    return screenshotPath
+    const screenshot = await this.page.screenshot({ fullPage: false })
+    return screenshot.toString('base64')
   }
 
-  /**
-   * Handle multi-step forms
-   */
-  async handleMultiStepForm(
-    userProfile: any,
-    maxSteps: number = 10
-  ): Promise<AutomationResult[]> {
-    const results: AutomationResult[] = []
+  async analyzePageWithGemini(screenshot: string): Promise<any> {
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+
+    const prompt = `Analyze this job application page screenshot. Identify:
+1. Page type (job_listing, application_form, login, multi_step, confirmation, unknown)
+2. All form fields visible (name, type, label, required)
+3. Buttons (especially Apply, Submit, Next, Continue)
+4. Any special requirements or instructions
+
+Return a JSON object with this structure:
+{
+  "pageType": "application_form",
+  "formFields": [
+    {"name": "firstName", "type": "text", "label": "First Name", "required": true},
+    ...
+  ],
+  "buttons": [
+    {"text": "Apply Now", "type": "submit"},
+    ...
+  ],
+  "instructions": "any special instructions found",
+  "requiresLogin": false
+}`
+
+    const result = await model.generateContent([
+      prompt,
+      {
+        inlineData: {
+          mimeType: 'image/png',
+          data: screenshot,
+        },
+      },
+    ])
+
+    const response = result.response.text()
     
-    for (let step = 0; step < maxSteps; step++) {
-      console.log(`\n📋 Processing step ${step + 1}...`)
-      
-      // Capture and analyze current page
-      const screenshotPath = await this.captureCurrentState()
-      const analysis = await geminiAgent.analyzeScreenshot(screenshotPath)
-      
-      console.log(`Page type: ${analysis.pageType}`)
-      console.log(`Next action: ${analysis.nextAction}`)
-      
-      // Check if we're done
-      if (analysis.pageType === 'confirmation') {
-        console.log('🎉 Application submitted!')
-        const verification = await geminiAgent.verifySubmission(screenshotPath)
+    try {
+      const jsonMatch = response.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0])
+      }
+    } catch (e) {
+      console.error('Failed to parse Gemini response:', e)
+    }
+
+    return {
+      pageType: 'unknown',
+      formFields: [],
+      buttons: [],
+      instructions: response,
+      requiresLogin: false,
+    }
+  }
+
+  async fillField(selector: string, value: string) {
+    if (!this.page) throw new Error('Browser not initialized')
+    
+    try {
+      // Try multiple selector strategies
+      const element = await this.page.locator(selector).first()
+      await element.waitFor({ timeout: 5000 })
+      await element.fill(value)
+      return true
+    } catch (e) {
+      console.error(`Failed to fill field ${selector}:`, e)
+      return false
+    }
+  }
+
+  async clickButton(text: string) {
+    if (!this.page) throw new Error('Browser not initialized')
+    
+    try {
+      // Try to find button by text
+      const button = this.page.getByRole('button', { name: new RegExp(text, 'i') })
+      await button.click()
+      await this.page.waitForTimeout(2000)
+      return true
+    } catch (e) {
+      console.error(`Failed to click button "${text}":`, e)
+      return false
+    }
+  }
+
+  async findAndFillForm(profile: any, analysis: any) {
+    const results: any[] = []
+
+    for (const field of analysis.formFields) {
+      let value = ''
+
+      // Map form fields to profile data
+      const fieldName = field.name.toLowerCase()
+      const fieldLabel = field.label.toLowerCase()
+
+      if (fieldName.includes('first') || fieldLabel.includes('first')) {
+        value = profile.firstName
+      } else if (fieldName.includes('last') || fieldLabel.includes('last')) {
+        value = profile.lastName
+      } else if (fieldName.includes('email')) {
+        value = profile.email
+      } else if (fieldName.includes('phone')) {
+        value = profile.phone || ''
+      } else if (fieldName.includes('location') || fieldName.includes('city')) {
+        value = profile.location || ''
+      } else if (fieldName.includes('headline') || fieldName.includes('title')) {
+        value = profile.headline || ''
+      } else if (fieldName.includes('summary') || fieldName.includes('about')) {
+        value = profile.summary || ''
+      }
+
+      if (value) {
+        const success = await this.fillField(`[name="${field.name}"]`, value)
         results.push({
-          success: verification.success,
-          message: verification.message,
-          screenshotPath
+          field: field.label,
+          value: value.substring(0, 50) + (value.length > 50 ? '...' : ''),
+          success,
         })
-        break
-      }
-      
-      // Fill current form
-      const fillResult = await this.fillFormIntelligently(analysis, userProfile)
-      results.push(fillResult)
-      
-      if (!fillResult.success) {
-        break
-      }
-      
-      // Find and click Next/Submit button
-      const nextButton = analysis.elements.find(el => 
-        el.type === 'button' && 
-        (el.label.toLowerCase().includes('next') || 
-         el.label.toLowerCase().includes('submit') ||
-         el.label.toLowerCase().includes('continue'))
-      )
-      
-      if (nextButton) {
-        const clickResult = await this.clickButton(nextButton.label)
-        results.push(clickResult)
-        
-        if (!clickResult.success) {
-          break
-        }
-        
-        // Wait for next page to load
-        await this.page!.waitForTimeout(3000)
-      } else {
-        console.log('No next button found, assuming single-page form')
-        break
       }
     }
-    
+
     return results
   }
 
-  /**
-   * Cleanup
-   */
-  async close(): Promise<void> {
+  async submitForm() {
+    if (!this.page) throw new Error('Browser not initialized')
+    
+    try {
+      // Try to find and click submit button
+      const submitButton = this.page.getByRole('button', { 
+        name: /submit|apply|send|continue/i 
+      }).first()
+      
+      await submitButton.click()
+      await this.page.waitForTimeout(3000)
+      return true
+    } catch (e) {
+      console.error('Failed to submit form:', e)
+      return false
+    }
+  }
+
+  async getPageText(): Promise<string> {
+    if (!this.page) throw new Error('Browser not initialized')
+    return await this.page.textContent('body') || ''
+  }
+
+  async close() {
     if (this.browser) {
       await this.browser.close()
-      console.log('🔒 Browser closed')
+      this.browser = null
+      this.page = null
     }
   }
 }
