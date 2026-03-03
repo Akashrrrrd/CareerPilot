@@ -1,0 +1,68 @@
+# Google Cloud Build configuration for automated deployment
+# This file enables CI/CD for CareerPilot AI
+
+steps:
+  # Step 1: Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/careerpilot-ai:$COMMIT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/careerpilot-ai:latest'
+      - '.'
+    timeout: 1200s
+
+  # Step 2: Push the container image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/careerpilot-ai:$COMMIT_SHA'
+
+  # Step 3: Push the latest tag
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/careerpilot-ai:latest'
+
+  # Step 4: Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'careerpilot-ai'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/careerpilot-ai:$COMMIT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--memory'
+      - '2Gi'
+      - '--cpu'
+      - '2'
+      - '--timeout'
+      - '300'
+      - '--max-instances'
+      - '10'
+      - '--min-instances'
+      - '0'
+      - '--set-secrets'
+      - 'GOOGLE_GEMINI_API_KEY=gemini-api-key:latest,MONGODB_URI=mongodb-uri:latest'
+      - '--set-env-vars'
+      - 'GOOGLE_CLOUD_PROJECT_ID=$PROJECT_ID,NODE_ENV=production'
+
+# Store images in Container Registry
+images:
+  - 'gcr.io/$PROJECT_ID/careerpilot-ai:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/careerpilot-ai:latest'
+
+# Build timeout
+timeout: 1800s
+
+# Build options
+options:
+  machineType: 'N1_HIGHCPU_8'
+  logging: CLOUD_LOGGING_ONLY
