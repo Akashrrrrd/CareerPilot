@@ -1,12 +1,12 @@
 /**
- * WINNING FEATURE #1: Live Streaming API
+ * DEMO STREAMING API - For Judges
  * 
- * Server-Sent Events (SSE) endpoint for real-time agent updates
- * Judges will see the agent working LIVE!
+ * Shows the agent working with a real LinkedIn job posting
+ * Uses pre-captured screenshot for clean demonstration
  */
 
 import { NextRequest } from 'next/server'
-import { LiveStreamingAgent, StreamEvent } from '@/lib/agent/live-streaming-agent'
+import { DemoStreamingAgent, StreamEvent } from '@/lib/agent/demo-streaming-agent'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -14,17 +14,14 @@ export const dynamic = 'force-dynamic'
 export async function POST(request: NextRequest) {
   const { jobUrl, jobTitle, company, userProfile } = await request.json()
 
-  // Create a readable stream for SSE
   const encoder = new TextEncoder()
-  
+
   const stream = new ReadableStream({
     async start(controller) {
-      const agent = new LiveStreamingAgent()
+      const agent = new DemoStreamingAgent()
 
-      // Set up the stream callback
       agent.setStreamCallback((event: StreamEvent) => {
         try {
-          // Safely stringify, removing circular references
           const safeEvent = JSON.parse(JSON.stringify(event))
           const data = `data: ${JSON.stringify(safeEvent)}\n\n`
           controller.enqueue(encoder.encode(data))
@@ -34,23 +31,19 @@ export async function POST(request: NextRequest) {
       })
 
       try {
-        // Start the agent
-        await agent.processApplicationLive(jobUrl, jobTitle, company, userProfile)
+        await agent.processApplicationDemo(jobUrl, jobTitle, company, userProfile)
 
-        // Send completion event
         const completeEvent: StreamEvent = {
           type: 'success',
           timestamp: Date.now(),
-          message: 'Application process completed',
+          message: 'Demo completed successfully!',
         }
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(completeEvent)}\n\n`))
       } catch (error) {
-        // Send error event
         const errorEvent: StreamEvent = {
           type: 'error',
           timestamp: Date.now(),
           message: error instanceof Error ? error.message : 'Unknown error',
-          data: { error },
         }
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(errorEvent)}\n\n`))
       } finally {

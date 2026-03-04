@@ -5,10 +5,11 @@
  * with a distinct personality that narrates every action.
  */
 
-import { BrowserAutomationEngine } from './browser-automation'
+import { BrowserAutomation } from './browser-automation'
 import { geminiAgent, PageAnalysis } from './gemini-vision'
 import { confidenceScorer, ConfidenceScore } from './confidence-scorer'
 import { errorRecovery, ErrorContext, RecoveryResult } from './error-recovery'
+import { screenshotCache } from './screenshot-cache'
 import type { ProfileData } from './types'
 
 export interface StreamEvent {
@@ -19,7 +20,7 @@ export interface StreamEvent {
   confidence?: number
   confidenceBreakdown?: ConfidenceScore
   recoveryResult?: RecoveryResult
-  screenshot?: string
+  screenshotUrl?: string // URL to fetch screenshot, not the base64 data
 }
 
 export type StreamCallback = (event: StreamEvent) => void
@@ -106,13 +107,13 @@ class AgentPersona {
  * Live Streaming Agent - The star of the show!
  */
 export class LiveStreamingAgent {
-  private browser: BrowserAutomationEngine
+  private browser: BrowserAutomation
   private persona: AgentPersona
   private streamCallback: StreamCallback | null = null
   private isRunning = false
 
   constructor() {
-    this.browser = new BrowserAutomationEngine()
+    this.browser = new BrowserAutomation()
     this.persona = new AgentPersona()
   }
 
@@ -180,10 +181,12 @@ export class LiveStreamingAgent {
 
         const screenshotPath = await this.browser.navigateAndCapture(jobUrl)
         
+        // Store screenshot in cache and send URL instead of base64
+        const screenshotId = screenshotCache.store(screenshotPath)
         this.emit({
           type: 'screenshot',
           message: 'Captured initial page',
-          screenshot: screenshotPath,
+          screenshotUrl: `/api/agent/screenshot?id=${screenshotId}`,
         })
 
         // Analyze page
@@ -369,10 +372,11 @@ export class LiveStreamingAgent {
     await new Promise(resolve => setTimeout(resolve, 3000))
 
     const newScreenshot = await this.browser.captureCurrentState()
+    const screenshotId = screenshotCache.store(newScreenshot)
     this.emit({
       type: 'screenshot',
       message: 'Application form loaded',
-      screenshot: newScreenshot,
+      screenshotUrl: `/api/agent/screenshot?id=${screenshotId}`,
     })
 
     const newAnalysis = await geminiAgent.analyzeScreenshot(newScreenshot)
@@ -492,10 +496,11 @@ export class LiveStreamingAgent {
       await new Promise(resolve => setTimeout(resolve, 2000))
 
       const finalScreenshot = await this.browser.captureCurrentState()
+      const screenshotId = screenshotCache.store(finalScreenshot)
       this.emit({
         type: 'screenshot',
         message: 'Application submitted!',
-        screenshot: finalScreenshot,
+        screenshotUrl: `/api/agent/screenshot?id=${screenshotId}`,
       })
     }
   }

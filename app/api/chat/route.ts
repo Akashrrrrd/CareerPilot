@@ -90,9 +90,9 @@ export async function POST(request: NextRequest) {
         aiResponse = "I'm sorry, but no Gemini API key is configured. Please add your API key in Settings to enable AI chat functionality."
       } else {
         // Initialize the Google Generative AI client
-        // gemini-1.5-flash-8b: free tier, 1500 requests/day, 15 requests/min
+        // gemini-pro: stable model for v1beta API
         const genAI = new GoogleGenerativeAI(apiKey)
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+        const model = genAI.getGenerativeModel({ model: 'gemini-pro' })
 
         // Build conversation context (last 10 messages, excluding the one just added)
         const contextMessages = chat.messages.slice(-11, -1)
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
           ? `You are a helpful career assistant for CareerPilot. Help users with job search, resume building, interview preparation, and career advice.\n\nPrevious conversation:\n${conversationContext}\n\nUser: ${message}\n\nAssistant:`
           : `You are a helpful career assistant for CareerPilot. Help users with job search, resume building, interview preparation, and career advice.\n\nUser: ${message}\n\nAssistant:`
 
-        console.log('[Chat API] Sending to Gemini with model: gemini-1.5-flash')
+        console.log('[Chat API] Sending to Gemini with model: gemini-pro')
 
         const result = await model.generateContent(prompt)
         const response = result.response

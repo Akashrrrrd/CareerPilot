@@ -47,14 +47,23 @@ export class BrowserAutomation {
     }
   }
 
+  async navigateAndCapture(url: string): Promise<string> {
+    await this.navigateTo(url)
+    return await this.takeScreenshot()
+  }
+
   async takeScreenshot(): Promise<string> {
     if (!this.page) throw new Error('Browser not initialized')
     const screenshot = await this.page.screenshot({ fullPage: false })
     return screenshot.toString('base64')
   }
 
+  async captureCurrentState(): Promise<string> {
+    return await this.takeScreenshot()
+  }
+
   async analyzePageWithGemini(screenshot: string): Promise<any> {
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+    const model = genAI.getGenerativeModel({ model: 'gemini-pro-vision' })
 
     const prompt = `Analyze this job application page screenshot. Identify:
 1. Page type (job_listing, application_form, login, multi_step, confirmation, unknown)

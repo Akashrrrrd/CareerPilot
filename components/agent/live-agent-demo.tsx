@@ -42,9 +42,9 @@ export function LiveAgentDemo() {
   const [latestScreenshot, setLatestScreenshot] = useState<string | null>(null)
   
   // Form inputs
-  const [jobUrl, setJobUrl] = useState('https://www.linkedin.com/jobs/view/123456')
-  const [jobTitle, setJobTitle] = useState('Senior React Developer')
-  const [company, setCompany] = useState('Tech Corp')
+  const [jobUrl, setJobUrl] = useState('https://www.linkedin.com/jobs/view/4377520491')
+  const [jobTitle, setJobTitle] = useState('Software Engineer')
+  const [company, setCompany] = useState('Stadium')
 
   const logsEndRef = useRef<HTMLDivElement>(null)
 
@@ -54,7 +54,7 @@ export function LiveAgentDemo() {
   }, [logs])
 
   /**
-   * Start the live agent
+   * Start the demo agent
    */
   const startAgent = async () => {
     setIsRunning(true)
@@ -63,7 +63,7 @@ export function LiveAgentDemo() {
     setConfidence(0)
 
     try {
-      const response = await fetch('/api/agent/stream-live', {
+      const response = await fetch('/api/agent/stream-demo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -77,6 +77,9 @@ export function LiveAgentDemo() {
             phone: '(555) 123-4567',
             linkedinUrl: 'https://linkedin.com/in/johndoe',
             resumePath: '/path/to/resume.pdf',
+            location: 'San Francisco, CA',
+            headline: 'Senior Software Engineer',
+            summary: 'Passionate about building scalable applications',
           },
         }),
       })
@@ -87,22 +90,30 @@ export function LiveAgentDemo() {
 
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
+      let buffer = '' // Buffer for incomplete JSON
 
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
 
         const chunk = decoder.decode(value)
-        const lines = chunk.split('\n')
+        buffer += chunk
+        
+        const lines = buffer.split('\n')
+        // Keep the last incomplete line in buffer
+        buffer = lines.pop() || ''
 
         for (const line of lines) {
           if (line.startsWith('data: ')) {
-            const data = line.slice(6)
+            const data = line.slice(6).trim()
+            if (!data) continue // Skip empty data
+            
             try {
               const event: StreamEvent = JSON.parse(data)
               handleStreamEvent(event)
             } catch (e) {
-              console.error('Failed to parse event:', e)
+              console.error('Failed to parse event:', data.substring(0, 100), e)
+              // Skip malformed events instead of crashing
             }
           }
         }
@@ -137,8 +148,8 @@ export function LiveAgentDemo() {
         break
 
       case 'screenshot':
-        if (event.screenshot) {
-          setLatestScreenshot(event.screenshot)
+        if (event.screenshotUrl) {
+          setLatestScreenshot(event.screenshotUrl)
         }
         break
 
@@ -224,68 +235,70 @@ export function LiveAgentDemo() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Control Panel */}
-      <Card className="bg-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Bot className="h-5 w-5" />
-            Live AI Agent Demo
-          </CardTitle>
-          <CardDescription>
-            Watch the agent work in real-time with personality and confidence scoring
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="space-y-2">
-              <Label htmlFor="jobUrl">Job URL</Label>
-              <Input
-                id="jobUrl"
-                value={jobUrl}
-                onChange={(e) => setJobUrl(e.target.value)}
-                disabled={isRunning}
-                placeholder="https://..."
-              />
+    <div className="flex flex-col gap-6">
+      {/* Fixed Header - Control Panel */}
+      <div className="flex-shrink-0 border-b bg-card p-6">
+        <Card className="bg-card border-0">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Bot className="h-5 w-5" />
+              Live AI Agent - Stadium Software Engineer Role
+            </CardTitle>
+            <CardDescription>
+              Watch the agent analyze a real LinkedIn job posting and fill out the application automatically
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="jobUrl">Job URL</Label>
+                <Input
+                  id="jobUrl"
+                  value={jobUrl}
+                  onChange={(e) => setJobUrl(e.target.value)}
+                  disabled={isRunning}
+                  placeholder="https://..."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="jobTitle">Job Title</Label>
+                <Input
+                  id="jobTitle"
+                  value={jobTitle}
+                  onChange={(e) => setJobTitle(e.target.value)}
+                  disabled={isRunning}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="company">Company</Label>
+                <Input
+                  id="company"
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                  disabled={isRunning}
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="jobTitle">Job Title</Label>
-              <Input
-                id="jobTitle"
-                value={jobTitle}
-                onChange={(e) => setJobTitle(e.target.value)}
-                disabled={isRunning}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="company">Company</Label>
-              <Input
-                id="company"
-                value={company}
-                onChange={(e) => setCompany(e.target.value)}
-                disabled={isRunning}
-              />
-            </div>
-          </div>
 
-          <div className="flex gap-2">
-            {!isRunning ? (
-              <Button onClick={startAgent} className="gap-2">
-                <Play className="h-4 w-4" />
-                Start Agent
-              </Button>
-            ) : (
-              <Button onClick={stopAgent} variant="destructive" className="gap-2">
-                <Square className="h-4 w-4" />
-                Stop Agent
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+            <div className="flex gap-2">
+              {!isRunning ? (
+                <Button onClick={startAgent} className="gap-2">
+                  <Play className="h-4 w-4" />
+                  Start Agent
+                </Button>
+              ) : (
+                <Button onClick={stopAgent} variant="destructive" className="gap-2">
+                  <Square className="h-4 w-4" />
+                  Stop Agent
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
-      {/* Status Dashboard */}
-      <div className="grid gap-4 md:grid-cols-3">
+      {/* Static Status Dashboard */}
+      <div className="flex-shrink-0 grid gap-4 md:grid-cols-3 px-6">
         <Card className="bg-card">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium">Current Status</CardTitle>
@@ -316,20 +329,20 @@ export function LiveAgentDemo() {
         </Card>
       </div>
 
-      {/* Live Feed */}
-      <div className="grid gap-4 md:grid-cols-2">
-        {/* Agent Logs */}
-        <Card className="bg-card">
-          <CardHeader>
+      {/* Live Feed - Fixed Height Cards with Scrollable Content Inside */}
+      <div className="flex-shrink-0 grid gap-4 md:grid-cols-2 px-6 h-[500px] mb-8">
+        {/* Agent Logs - SCROLLABLE INSIDE */}
+        <Card className="bg-card flex flex-col overflow-hidden">
+          <CardHeader className="flex-shrink-0">
             <CardTitle className="flex items-center gap-2">
               <Brain className="h-5 w-5" />
               Agent Activity Feed
             </CardTitle>
             <CardDescription>Real-time thoughts and actions</CardDescription>
           </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-[500px] pr-4">
-              <div className="space-y-3">
+          <CardContent className="flex-1 overflow-hidden p-0">
+            <ScrollArea className="h-full w-full">
+              <div className="space-y-3 p-6">
                 {logs.length === 0 ? (
                   <div className="text-center text-muted-foreground py-8">
                     No activity yet. Start the agent to see it in action!
@@ -369,28 +382,28 @@ export function LiveAgentDemo() {
           </CardContent>
         </Card>
 
-        {/* Screenshot Preview */}
-        <Card className="bg-card">
-          <CardHeader>
+        {/* Screenshot Preview - STATIC */}
+        <Card className="bg-card flex flex-col overflow-hidden">
+          <CardHeader className="flex-shrink-0">
             <CardTitle className="flex items-center gap-2">
               <Eye className="h-5 w-5" />
-              Live Screenshot
+              Application Result
             </CardTitle>
-            <CardDescription>What the agent sees right now</CardDescription>
+            <CardDescription>Confirmation when application is submitted</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="h-[500px] bg-muted rounded-lg flex items-center justify-center">
+          <CardContent className="flex-1 overflow-hidden p-0">
+            <div className="h-full bg-muted rounded-lg flex items-center justify-center p-6">
               {latestScreenshot ? (
                 <img
                   src={latestScreenshot}
-                  alt="Agent view"
+                  alt="Application result"
                   className="max-w-full max-h-full object-contain"
                 />
               ) : (
                 <div className="text-center text-muted-foreground">
-                  <Camera className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>No screenshot yet</p>
-                  <p className="text-sm">Screenshots will appear here as the agent works</p>
+                  <Eye className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                  <p>Application in progress</p>
+                  <p className="text-sm">Result will appear here when application is submitted</p>
                 </div>
               )}
             </div>
