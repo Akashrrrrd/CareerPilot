@@ -311,15 +311,6 @@ export function ChatInterface() {
             </div>
           </CardContent>
         </Card>
-
-        {/* API Key Notice */}
-        <Card className="bg-card border-blue-500/20">
-          <CardContent className="pt-6">
-            <p className="text-xs text-muted-foreground">
-              💡 Add your Gemini API key in Settings to enable AI chat functionality.
-            </p>
-          </CardContent>
-        </Card>
       </div>
     </div>
   )

@@ -5,10 +5,13 @@
  * any job application form without needing DOM access or APIs.
  */
 
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { GoogleGenAI } from '@google/genai'
 import fs from 'fs'
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY || '')
+const genAI = new GoogleGenAI({
+  vertexai: false,
+  apiKey: process.env.GEMINI_API_KEY || '',
+})
 
 export interface UIElement {
   type: 'input' | 'textarea' | 'select' | 'button' | 'checkbox' | 'radio' | 'file' | 'link'
@@ -34,7 +37,7 @@ export class GeminiVisionAgent {
 
   constructor() {
     this.model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.0-flash-exp',
+      model: 'gemini-pro-vision',
       generationConfig: {
         temperature: 0.1, // Low temperature for consistent, accurate analysis
         topP: 0.95,

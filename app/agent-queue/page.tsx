@@ -54,6 +54,24 @@ export default function AgentQueuePage() {
           </div>
         </div>
 
+        {/* API Key Notice */}
+        <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500/10 mt-0.5">
+              <span className="text-lg">💡</span>
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-foreground">Want to Explore This Feature?</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                To use the Agent Queue and apply to multiple jobs instantly, you'll need to add your own Gemini API key. 
+                Get a free API key from <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Google AI Studio</a>, 
+                then save it in <a href="/settings" className="text-blue-500 hover:underline">Settings</a>. 
+                Once configured, the AI agent will automatically process your job applications using Gemini Vision!
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Queue */}
         <AgentQueue key={refreshKey} />
 

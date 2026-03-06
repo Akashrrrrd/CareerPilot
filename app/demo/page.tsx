@@ -9,6 +9,36 @@ export default function DemoPage() {
   return (
     <MainLayout>
       <div className="pb-8 space-y-8">
+        {/* Hero Section */}
+        <div className="px-6 pt-6">
+          <div className="text-center space-y-4 mb-8">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20">
+              <span className="text-sm font-medium">🏆 Gemini Live Agent Challenge</span>
+            </div>
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              Live AI Agent Demo
+            </h1>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              Watch our AI agent apply to a real LinkedIn job posting in real-time using Gemini 2.0 Flash Vision. 
+              No DOM access, no APIs - just pure visual understanding.
+            </p>
+            <div className="flex items-center justify-center gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                <span>Live Streaming</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-blue-500" />
+                <span>Confidence Scoring</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-purple-500" />
+                <span>Visual Understanding</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <LiveAgentDemo />
 
         {/* Supported Platforms */}

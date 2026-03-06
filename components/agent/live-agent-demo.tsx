@@ -40,6 +40,8 @@ export function LiveAgentDemo() {
   const [confidence, setConfidence] = useState<number>(0)
   const [progress, setProgress] = useState<number>(0)
   const [latestScreenshot, setLatestScreenshot] = useState<string | null>(null)
+  const [totalActions, setTotalActions] = useState<number>(0)
+  const [successfulActions, setSuccessfulActions] = useState<number>(0)
   
   // Form inputs
   const [jobUrl, setJobUrl] = useState('https://www.linkedin.com/jobs/view/4377520491')
@@ -61,6 +63,9 @@ export function LiveAgentDemo() {
     setLogs([])
     setProgress(0)
     setConfidence(0)
+    setTotalActions(0)
+    setSuccessfulActions(0)
+    setLatestScreenshot(null)
 
     try {
       const response = await fetch('/api/agent/stream-demo', {
@@ -154,6 +159,8 @@ export function LiveAgentDemo() {
         break
 
       case 'action':
+        setTotalActions(prev => prev + 1)
+        setSuccessfulActions(prev => prev + 1)
         if (event.data?.progress) {
           const [current, total] = event.data.progress.split('/').map(Number)
           setProgress((current / total) * 100)
@@ -298,33 +305,75 @@ export function LiveAgentDemo() {
       </div>
 
       {/* Static Status Dashboard */}
-      <div className="flex-shrink-0 grid gap-4 md:grid-cols-3 px-6">
-        <Card className="bg-card">
+      <div className="flex-shrink-0 grid gap-4 md:grid-cols-4 px-6">
+        <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Current Status</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Activity className="h-4 w-4 text-blue-500" />
+              Current Status
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{currentStatus}</div>
+            {isRunning && (
+              <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                Live
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        <Card className="bg-card">
+        <Card className="bg-gradient-to-br from-green-500/10 to-green-600/5 border-green-500/20">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Confidence Score</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Brain className="h-4 w-4 text-green-500" />
+              Confidence Score
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{confidence.toFixed(0)}%</div>
-            <Progress value={confidence} className="mt-2" />
+            <Progress value={confidence} className="mt-2 h-2" />
+            <div className="text-xs text-muted-foreground mt-1">
+              {confidence >= 90 ? 'Excellent' : confidence >= 75 ? 'Good' : confidence >= 60 ? 'Moderate' : 'Low'}
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-card">
+        <Card className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-purple-500/20">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Progress</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Zap className="h-4 w-4 text-purple-500" />
+              Progress
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{progress.toFixed(0)}%</div>
-            <Progress value={progress} className="mt-2" />
+            <Progress value={progress} className="mt-2 h-2" />
+            <div className="text-xs text-muted-foreground mt-1">
+              {successfulActions} of {totalActions} actions
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-orange-500/10 to-orange-600/5 border-orange-500/20">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-orange-500" />
+              Success Rate
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {totalActions > 0 ? ((successfulActions / totalActions) * 100).toFixed(0) : 0}%
+            </div>
+            <Progress 
+              value={totalActions > 0 ? (successfulActions / totalActions) * 100 : 0} 
+              className="mt-2 h-2" 
+            />
+            <div className="text-xs text-muted-foreground mt-1">
+              {successfulActions} successful
+            </div>
           </CardContent>
         </Card>
       </div>

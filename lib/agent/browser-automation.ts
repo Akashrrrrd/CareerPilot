@@ -1,7 +1,10 @@
 import { chromium, Browser, Page } from 'playwright'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { GoogleGenAI } from '@google/genai'
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
+const genAI = new GoogleGenAI({
+  vertexai: false,
+  apiKey: process.env.GEMINI_API_KEY || '',
+})
 
 export class BrowserAutomation {
   private browser: Browser | null = null

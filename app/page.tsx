@@ -9,13 +9,21 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // Check if user is logged in (mock check)
-    const user = localStorage.getItem('user')
+    // For hackathon judges - redirect to demo
+    // In production, this would check authentication
+    const isDemoMode = process.env.NODE_ENV === 'development' || true
     
-    if (user) {
-      router.push('/dashboard')
+    if (isDemoMode) {
+      router.push('/demo')
     } else {
-      router.push('/auth/login')
+      // Check if user is logged in (mock check)
+      const user = localStorage.getItem('user')
+      
+      if (user) {
+        router.push('/dashboard')
+      } else {
+        router.push('/auth/login')
+      }
     }
     
     setIsLoading(false)
